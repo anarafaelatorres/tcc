@@ -11,6 +11,15 @@ knitr::opts_chunk$set(
 )
 ```
 
+
+```{r}
+`%>%`<-magrittr::`%>%`
+library(ggplot2)
+library(gganimate)
+library(dplyr)
+library(sf)
+```
+
 # tcc
 
 <!-- badges: start -->
@@ -21,15 +30,47 @@ The goal of tcc is to ...
 What is special about using `README.Rmd` instead of just `README.md`? You can include R chunks like so:
 
 ```{r cars}
-summary(cars)
+dados<-readr::read_rds("data/ssp.rds")
+
+dados %>% 
+  dplyr::mutate(data = stringr::str_c(ifelse(mes <10,"0",""),mes,ano)) %>% 
+  dplyr::group_by(ano, regiao_nome) %>% 
+  dplyr::summarise(
+      dplyr::across(.cols = where(is.numeric), 
+                  .fns = sum, na.rm = TRUE)) %>% 
+  ggplot2::ggplot() +
+  ggplot2::geom_col(aes(x = ano, y = roubo_total))
+
 ```
 
-You'll still need to render `README.Rmd` regularly, to keep `README.md` up-to-date. `devtools::build_readme()` is handy for this. You could also use GitHub Actions to re-render `README.Rmd` every time you push. An example workflow can be found here: <https://github.com/r-lib/actions/tree/master/examples>.
+```{r}
 
-You can also embed plots, for example:
+municipios_brasil <- readr::read_rds("data/municipios_todos.rds")
 
-```{r pressure, echo = FALSE}
-plot(pressure)
+dados_idh_muni <- abjData::pnud_min %>% 
+  mutate(code_muni = as.double(muni_id))
+
+
+geom_sp<-municipios_brasil %>% 
+  filter(abbrev_state == "SP")
+  
+  
+dados %>% 
+  filter(ano >= 2015) %>%
+  select(municipio_nome, ano, roubo_total) %>% 
+  group_by(ano, municipio_nome) %>% 
+  summarise(roubo_total = sum(roubo_total, na.rm = TRUE)) %>% 
+  left_join(geom_sp, by=c("municipio_nome" = "name_muni")) %>%
+  filter(!is.na(abbrev_state)) %>% 
+  ggplot(aes(fill = roubo_total)) +
+  facet_wrap(~ano) +
+  scale_fill_viridis_c() +
+  geom_sf(aes(geometry = geom))
+
+   
+
+  
+dados %>% summary(roubo_total)
+  
 ```
 
-In that case, don't forget to commit and push the resulting figure files, so they display on GitHub.
