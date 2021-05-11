@@ -18,6 +18,8 @@ library(dplyr)
 library(sf)
 #> Warning: package 'sf' was built under R version 4.0.4
 #> Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1
+library(tidyr)
+library(purrr)
 ```
 
 # tcc
@@ -49,96 +51,70 @@ dados %>%
 ``` r
 municipios_brasil <- readr::read_rds("data/municipios_todos.rds")
 
-dados_idh_muni <- abjData::pnud_min %>% 
-  mutate(code_muni = as.double(muni_id))
-
-
 geom_sp<-municipios_brasil %>% 
   filter(abbrev_state == "SP")
   
-  
-dados %>% 
-  filter(ano >= 2015) %>%
+
+fazer_grafico <- function(tab) {
+  tab %>% 
+    ggplot(aes(fill = roubo_total)) +
+    scale_fill_viridis_c() +
+    geom_sf(aes(geometry = geom))
+}
+
+
+regiao_norte<-c("Caieiras", "Cajamar", "Francisco Morato", "Franco da Rocha", "Mairiporã")
+
+regiao_leste<-c("Arujá", "Biritiba-Mirim", "Ferraz de Vasconcelos", "Guararema", "Guarulhos", "Itaquaquecetuba", "Mogi das Cruzes", "Poá", "Salesópolis", "Santa Isabel", "Suzano")
+
+regiao_sudeste<-c("Diadema", "Mauá", "Ribeirão Pires", "Rio Grande da Serra", "Santo André", "São Bernardo do Campo", "São Caetano do Sul")
+
+regiao_sudoeste<-c("Cotia", "Embu", "Embu-Guaçu", "Itapecerica da Serra", "Juquitiba", "São Lourenço da Serra", "Taboão da Serra", "Vargem Grande Paulista")
+
+regiao_oeste<-c("Barueri", "Carapicuíba", "Itapevi", "Jandira", "Osasco", "Pirapora do Bom Jesus", "Santana de Parnaíba")
+
+
+dados_graficos <- dados %>%
+  filter(municipio_nome %in% c(regiao_oeste)) %>% 
   select(municipio_nome, ano, roubo_total) %>% 
   group_by(ano, municipio_nome) %>% 
   summarise(roubo_total = sum(roubo_total, na.rm = TRUE)) %>% 
   left_join(geom_sp, by=c("municipio_nome" = "name_muni")) %>%
-  filter(!is.na(abbrev_state)) %>% 
-  ggplot(aes(fill = roubo_total)) +
-  facet_wrap(~ano) +
-  scale_fill_viridis_c() +
-  geom_sf(aes(geometry = geom))
+  filter(!is.na(abbrev_state)) %>%
+  group_by(ano) %>% 
+  tidyr::nest() %>% 
+  mutate(grafico = map(data, fazer_grafico))
 #> `summarise()` has grouped output by 'ano'. You can override using the `.groups` argument.
+
+dados_graficos %>% 
+  filter(ano %in% c(2015:2020)) %>% 
+  pull(grafico)
+#> [[1]]
 ```
 
 ![](README_files/figure-gfm/unnamed-chunk-3-1.png)<!-- -->
 
-``` r
-   
+    #> 
+    #> [[2]]
 
-  
-dados %>% summary(roubo_total)
-#>       mes              ano       delegacia_nome     municipio_nome    
-#>  Min.   : 1.000   Min.   :2002   Length:311833      Length:311833     
-#>  1st Qu.: 3.000   1st Qu.:2006   Class :character   Class :character  
-#>  Median : 6.000   Median :2011   Mode  :character   Mode  :character  
-#>  Mean   : 6.426   Mean   :2011                                        
-#>  3rd Qu.: 9.000   3rd Qu.:2015                                        
-#>  Max.   :12.000   Max.   :2020                                        
-#>  regiao_nome           estupro         estupro_total     estupro_vulneravel
-#>  Length:311833      Min.   : 0.00000   Min.   : 0.0000   Min.   : 0.00000  
-#>  Class :character   1st Qu.: 0.00000   1st Qu.: 0.0000   1st Qu.: 0.00000  
-#>  Mode  :character   Median : 0.00000   Median : 0.0000   Median : 0.00000  
-#>                     Mean   : 0.03494   Mean   : 0.4653   Mean   : 0.09784  
-#>                     3rd Qu.: 0.00000   3rd Qu.: 0.0000   3rd Qu.: 0.00000  
-#>                     Max.   :10.00000   Max.   :38.0000   Max.   :15.00000  
-#>   furto_outros    furto_veiculos    hom_culposo_acidente_transito
-#>  Min.   :  0.00   Min.   :  0.000   Min.   : 0.0000              
-#>  1st Qu.:  0.00   1st Qu.:  0.000   1st Qu.: 0.0000              
-#>  Median :  7.00   Median :  0.000   Median : 0.0000              
-#>  Mean   : 30.05   Mean   :  6.259   Mean   : 0.2494              
-#>  3rd Qu.: 38.00   3rd Qu.:  4.000   3rd Qu.: 0.0000              
-#>  Max.   :999.00   Max.   :574.000   Max.   :32.0000              
-#>  hom_culposo_outros   hom_doloso      hom_doloso_acidente_transito
-#>  Min.   : 0.00000   Min.   : 0.0000   Min.   :0.000000            
-#>  1st Qu.: 0.00000   1st Qu.: 0.0000   1st Qu.:0.000000            
-#>  Median : 0.00000   Median : 0.0000   Median :0.000000            
-#>  Mean   : 0.01502   Mean   : 0.3142   Mean   :0.001472            
-#>  3rd Qu.: 0.00000   3rd Qu.: 0.0000   3rd Qu.:0.000000            
-#>  Max.   :31.00000   Max.   :37.0000   Max.   :3.000000            
-#>  hom_tentativa       latrocinio      lesao_corp_culposa_acidente_transito
-#>  Min.   : 0.0000   Min.   :0.00000   Min.   :  0.000                     
-#>  1st Qu.: 0.0000   1st Qu.:0.00000   1st Qu.:  0.000                     
-#>  Median : 0.0000   Median :0.00000   Median :  2.000                     
-#>  Mean   : 0.3485   Mean   :0.01935   Mean   :  7.131                     
-#>  3rd Qu.: 0.0000   3rd Qu.:0.00000   3rd Qu.: 10.000                     
-#>  Max.   :60.0000   Max.   :4.00000   Max.   :288.000                     
-#>  lesao_corp_culposa_outras lesao_corp_dolosa lesao_corp_seg_morte
-#>  Min.   :  0.000           Min.   :  0.000   Min.   :0.0000000   
-#>  1st Qu.:  0.000           1st Qu.:  0.000   1st Qu.:0.0000000   
-#>  Median :  0.000           Median :  5.000   Median :0.0000000   
-#>  Mean   :  0.252           Mean   :  9.944   Mean   :0.0009588   
-#>  3rd Qu.:  0.000           3rd Qu.: 13.000   3rd Qu.:0.0000000   
-#>  Max.   :139.000           Max.   :353.000   Max.   :2.0000000   
-#>   roubo_banco        roubo_carga      roubo_outros      roubo_total    
-#>  Min.   : 0.00000   Min.   : 0.000   Min.   :  0.000   Min.   :  0.00  
-#>  1st Qu.: 0.00000   1st Qu.: 0.000   1st Qu.:  0.000   1st Qu.:  0.00  
-#>  Median : 0.00000   Median : 0.000   Median :  0.000   Median :  0.00  
-#>  Mean   : 0.01215   Mean   : 0.423   Mean   :  2.806   Mean   : 14.85  
-#>  3rd Qu.: 0.00000   3rd Qu.: 0.000   3rd Qu.:  0.000   3rd Qu.:  8.00  
-#>  Max.   :17.00000   Max.   :85.000   Max.   :953.000   Max.   :954.00  
-#>  roubo_veiculo     vit_hom_doloso   vit_hom_doloso_acidente_transito
-#>  Min.   :  0.000   Min.   : 0.000   Min.   :0.000000                
-#>  1st Qu.:  0.000   1st Qu.: 0.000   1st Qu.:0.000000                
-#>  Median :  0.000   Median : 0.000   Median :0.000000                
-#>  Mean   :  4.394   Mean   : 0.333   Mean   :0.001793                
-#>  3rd Qu.:  1.000   3rd Qu.: 0.000   3rd Qu.:0.000000                
-#>  Max.   :627.000   Max.   :37.000   Max.   :6.000000                
-#>  vit_latrocinio  
-#>  Min.   :0.0000  
-#>  1st Qu.:0.0000  
-#>  Median :0.0000  
-#>  Mean   :0.0206  
-#>  3rd Qu.:0.0000  
-#>  Max.   :5.0000
-```
+![](README_files/figure-gfm/unnamed-chunk-3-2.png)<!-- -->
+
+    #> 
+    #> [[3]]
+
+![](README_files/figure-gfm/unnamed-chunk-3-3.png)<!-- -->
+
+    #> 
+    #> [[4]]
+
+![](README_files/figure-gfm/unnamed-chunk-3-4.png)<!-- -->
+
+    #> 
+    #> [[5]]
+
+![](README_files/figure-gfm/unnamed-chunk-3-5.png)<!-- -->
+
+    #> 
+    #> [[6]]
+
+![](README_files/figure-gfm/unnamed-chunk-3-6.png)<!-- -->

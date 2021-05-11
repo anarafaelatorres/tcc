@@ -1,5 +1,6 @@
 ---
 output: github_document
+
 ---
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
@@ -18,6 +19,8 @@ library(ggplot2)
 library(gganimate)
 library(dplyr)
 library(sf)
+library(tidyr)
+library(purrr)
 ```
 
 # tcc
@@ -47,30 +50,44 @@ dados %>%
 
 municipios_brasil <- readr::read_rds("data/municipios_todos.rds")
 
-dados_idh_muni <- abjData::pnud_min %>% 
-  mutate(code_muni = as.double(muni_id))
-
-
 geom_sp<-municipios_brasil %>% 
   filter(abbrev_state == "SP")
   
-  
-dados %>% 
-  filter(ano >= 2015) %>%
+
+fazer_grafico <- function(tab) {
+  tab %>% 
+    ggplot(aes(fill = roubo_total)) +
+    scale_fill_viridis_c() +
+    geom_sf(aes(geometry = geom))
+}
+
+
+regiao_norte<-c("Caieiras", "Cajamar", "Francisco Morato", "Franco da Rocha", "Mairiporã")
+
+regiao_leste<-c("Arujá", "Biritiba-Mirim", "Ferraz de Vasconcelos", "Guararema", "Guarulhos", "Itaquaquecetuba", "Mogi das Cruzes", "Poá", "Salesópolis", "Santa Isabel", "Suzano")
+
+regiao_sudeste<-c("Diadema", "Mauá", "Ribeirão Pires", "Rio Grande da Serra", "Santo André", "São Bernardo do Campo", "São Caetano do Sul")
+
+regiao_sudoeste<-c("Cotia", "Embu", "Embu-Guaçu", "Itapecerica da Serra", "Juquitiba", "São Lourenço da Serra", "Taboão da Serra", "Vargem Grande Paulista")
+
+regiao_oeste<-c("Barueri", "Carapicuíba", "Itapevi", "Jandira", "Osasco", "Pirapora do Bom Jesus", "Santana de Parnaíba")
+
+
+dados_graficos <- dados %>%
+  filter(municipio_nome %in% c(regiao_oeste)) %>% 
   select(municipio_nome, ano, roubo_total) %>% 
   group_by(ano, municipio_nome) %>% 
   summarise(roubo_total = sum(roubo_total, na.rm = TRUE)) %>% 
   left_join(geom_sp, by=c("municipio_nome" = "name_muni")) %>%
-  filter(!is.na(abbrev_state)) %>% 
-  ggplot(aes(fill = roubo_total)) +
-  facet_wrap(~ano) +
-  scale_fill_viridis_c() +
-  geom_sf(aes(geometry = geom))
+  filter(!is.na(abbrev_state)) %>%
+  group_by(ano) %>% 
+  tidyr::nest() %>% 
+  mutate(grafico = map(data, fazer_grafico))
 
-   
+dados_graficos %>% 
+  filter(ano %in% c(2015:2020)) %>% 
+  pull(grafico)
 
-  
-dados %>% summary(roubo_total)
-  
+
 ```
 
